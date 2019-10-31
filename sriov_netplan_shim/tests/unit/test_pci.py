@@ -286,7 +286,7 @@ class PCINetDevicesTest(CharmTestCase):
             self.assertTrue(check_device(device, expect[device.pci_address]))
 
     def test_get_pci_ethernet_addresses(self):
-        _ = self.pci_devs()
+        self.pci_devs()
         expect = ["0000:10:00.0", "0000:10:00.1"]
         self.assertEqual(pci.get_pci_ethernet_addresses(), expect)
 

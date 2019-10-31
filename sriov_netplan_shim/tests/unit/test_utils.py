@@ -41,10 +41,13 @@ class CharmTestCase(unittest.TestCase):
 
 @contextmanager
 def patch_open():
-    """Patch open() to allow mocking both open() itself and the file that is
+    """Patch open builtin
+
+    Patch open() to allow mocking both open() itself and the file that is
     yielded.
 
-    Yields the mock for "open" and "file", respectively."""
+    Yields the mock for "open" and "file", respectively.
+    """
     mock_open = MagicMock(spec=open)
     mock_file = MagicMock(spec=io.FileIO)
 
