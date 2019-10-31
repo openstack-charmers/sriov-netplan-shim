@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/openstack-charmers/sriov-netplan-shim.svg?branch=master)](https://travis-ci.org/openstack-charmers/sriov-netplan-shim)
+
 # SR-IOV VF device configuration
 
 A simple utility that configures SR-IOV VF devices on network adapters
