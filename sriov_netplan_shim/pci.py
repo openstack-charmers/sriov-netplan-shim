@@ -14,16 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import glob
-import subprocess
+import os
 import shlex
+import subprocess
 
 
 def format_pci_addr(pci_addr) -> str:
     domain, bus, slot_func = pci_addr.split(":")
     slot, func = slot_func.split(".")
-    return "{}:{}:{}.{}".format(domain.zfill(4), bus.zfill(2), slot.zfill(2), func)
+    return "{}:{}:{}.{}".format(domain.zfill(4),
+                                bus.zfill(2), slot.zfill(2), func)
 
 
 def get_sysnet_interfaces_and_macs() -> list:

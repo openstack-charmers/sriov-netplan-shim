@@ -62,7 +62,8 @@ def main():
     parser = argparse.ArgumentParser("sriov-netplan-shim")
     parser.set_defaults(prog=parser.prog)
     subparsers = parser.add_subparsers(
-        title="subcommands", description="valid subcommands", help="sub-command help"
+        title="subcommands", description="valid subcommands",
+        help="sub-command help"
     )
     show_subparser = subparsers.add_parser(
         "configure", help="Configure SR-IOV adapters with VF functions"
