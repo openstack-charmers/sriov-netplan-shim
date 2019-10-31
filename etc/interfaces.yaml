@@ -1,0 +1,5 @@
+interfaces:
+    enp3s0f0:
+        num_vfs: 64
+    enp3s0f1:
+        num_vfs: 64
