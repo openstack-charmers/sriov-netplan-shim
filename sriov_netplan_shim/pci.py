@@ -20,11 +20,19 @@ import shlex
 import subprocess
 
 
-def format_pci_addr(pci_addr) -> str:
+def format_pci_addr(pci_addr: str) -> str:
+    """Format a PCI address with 0 fill for parts
+    
+    :param: pci_addr: unformatted PCI address
+    :type: str
+    :returns: formatted PCI address
+    :rtype: str
+    """
     domain, bus, slot_func = pci_addr.split(":")
     slot, func = slot_func.split(".")
-    return "{}:{}:{}.{}".format(domain.zfill(4),
-                                bus.zfill(2), slot.zfill(2), func)
+    return "{}:{}:{}.{}".format(
+        domain.zfill(4), bus.zfill(2), slot.zfill(2), func
+    )
 
 
 def get_sysnet_interfaces_and_macs() -> list:
@@ -36,12 +44,13 @@ def get_sysnet_interfaces_and_macs() -> list:
         mac_address: MAC address
         pci_address: PCI address
         state: Current interface state (up/down)
-        sriov: Boolean indicating whether inteface is an SR-IOV
+        sriov: Boolean indicating whether interface is an SR-IOV
                capable device.
         sriov_totalvfs: Total VF capacity of device
         sriov_numvfs: Configured VF capacity of device
 
-    :returns: array: of dict objects containing details of each interface
+    :returns: array of dict objects containing details of each interface
+    :rtype: list
     """
     net_devs = []
     for sdir in glob.glob("/sys/class/net/*"):
@@ -69,40 +78,40 @@ def get_sysnet_interfaces_and_macs() -> list:
 
 
 def get_sysnet_mac(sysdir: str) -> str:
-    """Read MAC address for a device
+    """Determine MAC address for a device
 
-    :sysdir: string: path to device /sys directory
-
-    :returns: string: MAC address of device
+    :param: sysdir: path to device /sys directory
+    :type: str
+    :returns: MAC address of device
+    :rtype: str
     """
     mac_addr_file = sysdir + "/address"
     with open(mac_addr_file, "r") as f:
         read_data = f.read()
-    mac = read_data.strip()
-    return mac
+    return read_data.strip()
 
 
 def get_sysnet_device_state(sysdir: str) -> str:
     """Read operational state of a device
 
-    :sysdir: string: path to device /sys directory
-
-    :returns: string: current device state
+    :param: sysdir: path to device /sys directory
+    :type: str
+    :returns: current device state
+    :rtype: str
     """
     state_file = sysdir + "/operstate"
     with open(state_file, "r") as f:
         read_data = f.read()
-    state = read_data.strip()
-    return state
+    return read_data.strip()
 
 
 def is_sriov(sysdir: str) -> bool:
     """Determine whether a device is SR-IOV capable
 
-    :sysdir: string: path to device /sys directory
-
-    :returns: boolean: indicating whether device is SR-IOV
-                       capable or not.
+    :param: sysdir: path to device /sys directory
+    :type: str
+    :returns: whether device is SR-IOV capable or not
+    :rtype: bool
     """
     return os.path.exists(os.path.join(sysdir, "device", "sriov_totalvfs"))
 
@@ -110,33 +119,50 @@ def is_sriov(sysdir: str) -> bool:
 def get_sriov_totalvfs(sysdir: str) -> int:
     """Read total VF capacity for a device
 
-    :sysdir: string: path to device /sys directory
-
-    :returns: int: number of VF's the device supports
+    :param: sysdir: path to device /sys directory
+    :type: str
+    :returns: number of VF's the device supports
+    :rtype: int
     """
     sriov_totalvfs_file = os.path.join(sysdir, "device", "sriov_totalvfs")
     with open(sriov_totalvfs_file, "r") as f:
         read_data = f.read()
-    sriov_totalvfs = int(read_data.strip())
-    return sriov_totalvfs
+    return int(read_data.strip())
 
 
 def get_sriov_numvfs(sysdir: str) -> int:
     """Read configured VF capacity for a device
 
-    :sysdir: string: path to device /sys directory
-
-    :returns: int: number of VF's the device is configured for
+    :param: sysdir: path to device /sys directory
+    :type: str
+    :returns: number of VF's the device is configured with
+    :rtype: int
     """
     sriov_numvfs_file = os.path.join(sysdir, "device", "sriov_numvfs")
     with open(sriov_numvfs_file, "r") as f:
         read_data = f.read()
-    sriov_numvfs = int(read_data.strip())
-    return sriov_numvfs
+    return int(read_data.strip())
 
 
 def get_sysnet_interface(sysdir):
     return sysdir.split("/")[-1]
+
+
+def get_pci_ethernet_addresses() -> list:
+    """Generate list of PCI addresses for all network adapters
+    
+    :returns: list of PCI addresses
+    :rtype: list
+    """
+    cmd = ["lspci", "-m", "-D"]
+    lspci_output = subprocess.check_output(cmd).decode("UTF-8")
+    pci_addresses = []
+    for line in lspci_output.split("\n"):
+        columns = shlex.split(line)
+        if len(columns) > 1 and columns[1] == "Ethernet controller":
+            pci_address = columns[0]
+            pci_addresses.append(format_pci_addr(pci_address))
+    return pci_addresses
 
 
 class PCINetDevice(object):
@@ -165,7 +191,7 @@ class PCINetDevice(object):
                     self.sriov_totalvfs = interface["sriov_totalvfs"]
                     self.sriov_numvfs = interface["sriov_numvfs"]
 
-    def _set_sriov_numvfs(self, numvfs):
+    def _set_sriov_numvfs(self, numvfs: int):
         sdevice = os.path.join(
             "/sys/class/net", self.interface_name, "device", "sriov_numvfs"
         )
@@ -173,7 +199,7 @@ class PCINetDevice(object):
             sh.write(str(numvfs))
         self.update_attributes()
 
-    def set_sriov_numvfs(self, numvfs):
+    def set_sriov_numvfs(self, numvfs: int) -> bool:
         """Set the number of VF devices for a SR-IOV PF
 
         Assuming the device is an SR-IOV device, this function will attempt
@@ -193,44 +219,36 @@ class PCINetDevice(object):
 
 class PCINetDevices(object):
     def __init__(self):
-        pci_addresses = self.get_pci_ethernet_addresses()
-        self.pci_devices = [PCINetDevice(dev) for dev in pci_addresses]
-
-    def get_pci_ethernet_addresses(self):
-        cmd = ["lspci", "-m", "-D"]
-        lspci_output = subprocess.check_output(cmd).decode("UTF-8")
-        pci_addresses = []
-        for line in lspci_output.split("\n"):
-            columns = shlex.split(line)
-            if len(columns) > 1 and columns[1] == "Ethernet controller":
-                pci_address = columns[0]
-                pci_addresses.append(format_pci_addr(pci_address))
-        return pci_addresses
+        self.pci_devices = [
+            PCINetDevice(dev) for dev in get_pci_ethernet_addresses()
+        ]
 
     def update_devices(self):
         for pcidev in self.pci_devices:
             pcidev.update_attributes()
 
-    def get_macs(self):
+    def get_macs(self) -> list:
         macs = []
         for pcidev in self.pci_devices:
             if pcidev.mac_address:
                 macs.append(pcidev.mac_address)
         return macs
 
-    def get_device_from_mac(self, mac):
+    def get_device_from_mac(self, mac: str) -> PCINetDevice:
         for pcidev in self.pci_devices:
             if pcidev.mac_address == mac:
                 return pcidev
         return None
 
-    def get_device_from_pci_address(self, pci_addr):
+    def get_device_from_pci_address(self, pci_addr: str) -> PCINetDevice:
         for pcidev in self.pci_devices:
             if pcidev.pci_address == pci_addr:
                 return pcidev
         return None
 
-    def get_device_from_interface_name(self, interface_name):
+    def get_device_from_interface_name(
+        self, interface_name: str
+    ) -> PCINetDevice:
         for pcidev in self.pci_devices:
             if pcidev.interface_name == interface_name:
                 return pcidev

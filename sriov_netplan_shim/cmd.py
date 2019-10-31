@@ -26,6 +26,7 @@ DEFAULT_CONF_FILE = "/etc/sriov-netplan-shim/interfaces.yaml"
 
 
 def configure():
+    """Configure SR-IOV VF's with configuration from interfaces.yaml"""
     configuration = {}
     if os.path.exists(DEFAULT_CONF_FILE):
         with open(DEFAULT_CONF_FILE, "r") as conf:
@@ -59,11 +60,13 @@ def configure():
 
 
 def main():
+    """Main entry point for sriov-netplan-shim"""
     parser = argparse.ArgumentParser("sriov-netplan-shim")
     parser.set_defaults(prog=parser.prog)
     subparsers = parser.add_subparsers(
-        title="subcommands", description="valid subcommands",
-        help="sub-command help"
+        title="subcommands",
+        description="valid subcommands",
+        help="sub-command help",
     )
     show_subparser = subparsers.add_parser(
         "configure", help="Configure SR-IOV adapters with VF functions"
