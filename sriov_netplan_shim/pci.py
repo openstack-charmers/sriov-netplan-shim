@@ -22,7 +22,7 @@ import subprocess
 
 def format_pci_addr(pci_addr: str) -> str:
     """Format a PCI address with 0 fill for parts
-    
+
     :param: pci_addr: unformatted PCI address
     :type: str
     :returns: formatted PCI address
@@ -150,7 +150,7 @@ def get_sysnet_interface(sysdir):
 
 def get_pci_ethernet_addresses() -> list:
     """Generate list of PCI addresses for all network adapters
-    
+
     :returns: list of PCI addresses
     :rtype: list
     """
