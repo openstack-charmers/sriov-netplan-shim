@@ -18,3 +18,4 @@ Interfaces will be configured with the supplied number or the maximum
 number of VF's that the device can support (if num\_vfs exceeds the
 device maximum value).
 
+Devices not found on the installed system will be skipped.
