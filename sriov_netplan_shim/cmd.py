@@ -30,9 +30,14 @@ def configure():
     configuration = {}
     if os.path.exists(DEFAULT_CONF_FILE):
         with open(DEFAULT_CONF_FILE, "r") as conf:
-            configuration = yaml.load(conf)
+            configuration = yaml.safe_load(conf)
     else:
         logging.warn("No configuration file found, skipping configuration")
+        return
+
+    if not configuration or "interfaces" not in configuration:
+        logging.warn("No interfaces section in configuration file, skipping "
+                     "configuration")
         return
 
     interfaces = configuration["interfaces"]
