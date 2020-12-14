@@ -44,7 +44,16 @@ def configure():
     for interface_name in interfaces:
         num_vfs = interfaces[interface_name]["num_vfs"]
         devices = pci.PCINetDevices()
-        device = devices.get_device_from_interface_name(interface_name)
+        device = None
+        if 'match' in interfaces[interface_name]:
+            match = interfaces[interface_name]['match']
+            if 'macaddress' in match:
+                device = devices.get_device_from_mac(match['macaddress'])
+            elif 'pciaddress' in match:
+                device = devices.get_device_from_pci_address(
+                    match['pciaddress'])
+        else:
+            device = devices.get_device_from_interface_name(interface_name)
         if device and device.sriov:
             if num_vfs > device.sriov_totalvfs:
                 logging.warn(
