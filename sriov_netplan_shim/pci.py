@@ -113,7 +113,7 @@ def is_sriov(sysdir: str) -> bool:
     :returns: whether device is SR-IOV capable or not
     :rtype: bool
     """
-    return os.path.exists(os.path.join(sysdir, "device", "sriov_totalvfs"))
+    return os.path.exists(os.path.join(sysdir, "device", "sriov_numvfs"))
 
 
 def get_sriov_totalvfs(sysdir: str) -> int:
@@ -125,9 +125,16 @@ def get_sriov_totalvfs(sysdir: str) -> int:
     :rtype: int
     """
     sriov_totalvfs_file = os.path.join(sysdir, "device", "sriov_totalvfs")
-    with open(sriov_totalvfs_file, "r") as f:
-        read_data = f.read()
-    return int(read_data.strip())
+    try:
+        with open(sriov_totalvfs_file, "r") as f:
+            read_data = f.read()
+        return int(read_data.strip())
+    except OSError:
+        # check if this is the `netdevsim` test fixture driver
+        if 'netdevsim' in os.path.realpath(
+                os.path.join(sysdir, 'device', 'driver')):
+            return 200
+        raise
 
 
 def get_sriov_numvfs(sysdir: str) -> int:
@@ -220,7 +227,8 @@ class PCINetDevice(object):
 class PCINetDevices(object):
     def __init__(self):
         self.pci_devices = [
-            PCINetDevice(dev) for dev in get_pci_ethernet_addresses()
+            PCINetDevice(dev['pci_address'])
+            for dev in get_sysnet_interfaces_and_macs()
         ]
 
     def update_devices(self):
