@@ -50,7 +50,7 @@ def get_sysnet_interfaces_and_macs() -> list:
         sriov_numvfs: Configured VF capacity of device
 
     :returns: array of dict objects containing details of each interface
-    :rtype: list
+    :rtype: List[Dict[str,str]]
     """
     net_devs = []
     for sdir in glob.glob("/sys/class/net/*"):
@@ -173,7 +173,7 @@ def get_pci_ethernet_addresses() -> list:
 
 
 class PCINetDevice(object):
-    def __init__(self, pci_address):
+    def __init__(self, pci_address, device=None):
         self.pci_address = pci_address
         self.interface_name = None
         self.mac_address = None
@@ -181,13 +181,25 @@ class PCINetDevice(object):
         self.sriov = False
         self.sriov_totalvfs = None
         self.sriov_numvfs = None
-        self.update_attributes()
+        self.update_interface_info(device=device)
 
     def update_attributes(self):
         self.update_interface_info()
 
-    def update_interface_info(self):
-        net_devices = get_sysnet_interfaces_and_macs()
+    def update_interface_info(self, device=None):
+        """Update interface details.
+
+        If device details are not provided the method will call out to
+        `get_sysnet_interfaces_and_macs` to enumerate all net devices
+        and retrieve information from the one matching `self.pci_address`
+
+        :param device: Interface details
+        :type device: Optional[Dict[str,str]]
+        """
+        if device:
+            net_devices = [device]
+        else:
+            net_devices = get_sysnet_interfaces_and_macs()
         for interface in net_devices:
             if self.pci_address == interface["pci_address"]:
                 self.interface_name = interface["interface"]
@@ -227,7 +239,7 @@ class PCINetDevice(object):
 class PCINetDevices(object):
     def __init__(self):
         self.pci_devices = [
-            PCINetDevice(dev['pci_address'])
+            PCINetDevice(dev['pci_address'], device=dev)
             for dev in get_sysnet_interfaces_and_macs()
         ]
 
