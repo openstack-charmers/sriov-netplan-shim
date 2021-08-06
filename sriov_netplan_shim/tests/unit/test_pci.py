@@ -19,6 +19,7 @@ from sriov_netplan_shim.tests.unit.test_pci_helper import check_device
 from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_filehandle
 from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_globs
 from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_islink
+from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_listdir
 from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_realpath
 from sriov_netplan_shim.tests.unit.test_pci_helper import mocked_subprocess
 
@@ -64,7 +65,9 @@ class PCINetDeviceTest(CharmTestCase):
             netint = pci.PCINetDevice(pci_address)
         return netint
 
-    def test_base_eth_device(self):
+    @patch("os.listdir")
+    def test_base_eth_device(self, _oslistdir):
+        _oslistdir.side_effect = mocked_listdir
         net = self.eth_int("0000:10:00.0")
         expect = {
             "interface_name": "eth2",
@@ -108,7 +111,7 @@ class PCINetDeviceTest(CharmTestCase):
     def test_get_sysnet_interfaces_and_macs(
         self, _update, _interface, _mac, _state, _sriov, _osrealpath, _osislink
     ):
-        self.glob.glob.return_value = ["/sys/class/net/eth2"]
+        self.glob.glob.return_value = ["/sys/bus/pci/devices/0000:10:00.0"]
         _interface.return_value = "eth2"
         _mac.return_value = "a8:9d:21:cf:93:fc"
         _state.return_value = "up"
@@ -137,7 +140,7 @@ class PCINetDeviceTest(CharmTestCase):
     def test_get_sysnet_interfaces_and_macs_virtio(
         self, _update, _interface, _mac, _state, _sriov, _osrealpath, _osislink
     ):
-        self.glob.glob.return_value = ["/sys/class/net/eth2"]
+        self.glob.glob.return_value = ["/sys/bus/pci/devices/0000:10:00.0"]
         _interface.return_value = "eth2"
         _mac.return_value = "a8:9d:21:cf:93:fc"
         _state.return_value = "up"
@@ -161,7 +164,8 @@ class PCINetDeviceTest(CharmTestCase):
             _file.readlines = MagicMock()
             _open.side_effect = super_fh._setfilename
             _file.read.side_effect = super_fh._getfilecontents_read
-            macaddr = pci.get_sysnet_mac("/sys/class/net/eth3")
+            macaddr = pci.get_sysnet_mac(
+                "/sys/bus/pci/devices/0000:10:00.1", "eth3")
         self.assertEqual(macaddr, "a8:9d:21:cf:93:fd")
 
     @patch("sriov_netplan_shim.pci.PCINetDevice.update_attributes")
@@ -171,14 +175,23 @@ class PCINetDeviceTest(CharmTestCase):
             _file.readlines = MagicMock()
             _open.side_effect = super_fh._setfilename
             _file.read.side_effect = super_fh._getfilecontents_read
-            state = pci.get_sysnet_device_state("/sys/class/net/eth3")
+            state = pci.get_sysnet_device_state(
+                "/sys/bus/pci/devices/0000:10:00.1", "eth3")
         self.assertEqual(state, "down")
 
+    @patch("os.listdir")
     @patch("sriov_netplan_shim.pci.PCINetDevice.update_attributes")
-    def test_get_sysnet_interface(self, _update):
-        self.assertEqual(
-            pci.get_sysnet_interface("/sys/class/net/eth3"), "eth3"
-        )
+    def test_get_sysnet_interface(self, _update, _oslistdir):
+        _oslistdir.side_effect = mocked_listdir
+        with patch_open() as (_open, _file):
+            super_fh = mocked_filehandle()
+            _file.readlines = MagicMock()
+            _open.side_effect = super_fh._setfilename
+            _file.read.side_effect = super_fh._getfilecontents_read
+            self.assertEqual(
+                pci.get_sysnet_interface("/sys/bus/pci/devices/0000:10:00.1"),
+                "eth3"
+            )
 
     @patch("sriov_netplan_shim.pci.get_sysnet_interfaces_and_macs")
     def test__set_sriov_numvfs(self, mock_sysnet_ints):
@@ -215,7 +228,7 @@ class PCINetDeviceTest(CharmTestCase):
         with patch_open() as (mock_open, mock_file):
             dev._set_sriov_numvfs(4)
             mock_open.assert_called_with(
-                "/sys/class/net/eth2/device/sriov_numvfs", "w"
+                "/sys/bus/pci/devices/0000:10:00.0/sriov_numvfs", "w"
             )
             mock_file.write.assert_called_with("4")
             self.assertTrue(dev.sriov)
@@ -252,6 +265,9 @@ class PCINetDevicesTest(CharmTestCase):
         self.subprocess.check_output.side_effect = mocked_subprocess(
             subproc_map=subproc_map
         )
+        listdir_patch = patch("os.listdir")
+        listdir_mock = listdir_patch.start()
+        listdir_mock.side_effect = mocked_listdir
 
         with patch_open() as (_open, _file):
             super_fh = mocked_filehandle()
@@ -261,6 +277,7 @@ class PCINetDevicesTest(CharmTestCase):
             _file.readlines.side_effect = super_fh._getfilecontents_readlines
             devices = pci.PCINetDevices()
         rp_patcher.stop()
+        listdir_patch.stop()
         return devices
 
     def test_base(self):

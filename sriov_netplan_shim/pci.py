@@ -15,9 +15,12 @@
 # limitations under the License.
 
 import glob
+import logging
 import os
+import re
 import shlex
 import subprocess
+import typing
 
 
 def format_pci_addr(pci_addr: str) -> str:
@@ -53,31 +56,34 @@ def get_sysnet_interfaces_and_macs() -> list:
     :rtype: list
     """
     net_devs = []
-    for sdir in glob.glob("/sys/class/net/*"):
-        sym_link = sdir + "/device"
-        if os.path.islink(sym_link):
-            fq_path = os.path.realpath(sym_link)
-            path = fq_path.split("/")
-            if "virtio" in path[-1]:
-                pci_address = path[-2]
-            else:
-                pci_address = path[-1]
-            device = {
-                "interface": get_sysnet_interface(sdir),
-                "mac_address": get_sysnet_mac(sdir),
-                "pci_address": pci_address,
-                "state": get_sysnet_device_state(sdir),
-                "sriov": is_sriov(sdir),
-            }
-            if device["sriov"]:
-                device["sriov_totalvfs"] = get_sriov_totalvfs(sdir)
-                device["sriov_numvfs"] = get_sriov_numvfs(sdir)
-            net_devs.append(device)
+    for sdir in glob.glob("/sys/bus/pci/devices/*/net/../"):
+        fq_path = os.path.realpath(sdir)
+        path = fq_path.split("/")
+        if "virtio" in path[-1]:
+            pci_address = path[-2]
+        else:
+            pci_address = path[-1]
+        ifname = get_sysnet_interface(sdir)
+        if not ifname:
+            logging.warn("Unable to determine interface name for PCI "
+                         "device {}".format(pci_address))
+            continue
+        device = {
+            "interface": ifname,
+            "mac_address": get_sysnet_mac(sdir, ifname),
+            "pci_address": pci_address,
+            "state": get_sysnet_device_state(sdir, ifname),
+            "sriov": is_sriov(sdir),
+        }
+        if device["sriov"]:
+            device["sriov_totalvfs"] = get_sriov_totalvfs(sdir)
+            device["sriov_numvfs"] = get_sriov_numvfs(sdir)
+        net_devs.append(device)
 
     return net_devs
 
 
-def get_sysnet_mac(sysdir: str) -> str:
+def get_sysnet_mac(sysdir: str, ifname: str) -> str:
     """Determine MAC address for a device
 
     :param: sysdir: path to device /sys directory
@@ -85,13 +91,13 @@ def get_sysnet_mac(sysdir: str) -> str:
     :returns: MAC address of device
     :rtype: str
     """
-    mac_addr_file = sysdir + "/address"
+    mac_addr_file = os.path.join(sysdir, "net", ifname, "address")
     with open(mac_addr_file, "r") as f:
         read_data = f.read()
     return read_data.strip()
 
 
-def get_sysnet_device_state(sysdir: str) -> str:
+def get_sysnet_device_state(sysdir: str, ifname: str) -> str:
     """Read operational state of a device
 
     :param: sysdir: path to device /sys directory
@@ -99,7 +105,7 @@ def get_sysnet_device_state(sysdir: str) -> str:
     :returns: current device state
     :rtype: str
     """
-    state_file = sysdir + "/operstate"
+    state_file = os.path.join(sysdir, "net", ifname, "operstate")
     with open(state_file, "r") as f:
         read_data = f.read()
     return read_data.strip()
@@ -113,7 +119,7 @@ def is_sriov(sysdir: str) -> bool:
     :returns: whether device is SR-IOV capable or not
     :rtype: bool
     """
-    return os.path.exists(os.path.join(sysdir, "device", "sriov_totalvfs"))
+    return os.path.exists(os.path.join(sysdir, "sriov_totalvfs"))
 
 
 def get_sriov_totalvfs(sysdir: str) -> int:
@@ -124,7 +130,7 @@ def get_sriov_totalvfs(sysdir: str) -> int:
     :returns: number of VF's the device supports
     :rtype: int
     """
-    sriov_totalvfs_file = os.path.join(sysdir, "device", "sriov_totalvfs")
+    sriov_totalvfs_file = os.path.join(sysdir, "sriov_totalvfs")
     with open(sriov_totalvfs_file, "r") as f:
         read_data = f.read()
     return int(read_data.strip())
@@ -138,14 +144,38 @@ def get_sriov_numvfs(sysdir: str) -> int:
     :returns: number of VF's the device is configured with
     :rtype: int
     """
-    sriov_numvfs_file = os.path.join(sysdir, "device", "sriov_numvfs")
+    sriov_numvfs_file = os.path.join(sysdir, "sriov_numvfs")
     with open(sriov_numvfs_file, "r") as f:
         read_data = f.read()
     return int(read_data.strip())
 
 
-def get_sysnet_interface(sysdir):
-    return sysdir.split("/")[-1]
+# https://github.com/libvirt/libvirt/commit/5b1c525b1f3608156884aed0dc5e925306c1e260
+PF_PHYS_PORT_NAME_REGEX = re.compile(r"(p[0-9]+$)|(p[0-9]+s[0-9]+$)",
+                                     re.IGNORECASE)
+
+
+def _phys_port_name_is_pf(sysnetdir: str) -> typing.Optional[bool]:
+    try:
+        with open(os.path.join(sysnetdir, "phys_port_name"), "r") as fin:
+            return (PF_PHYS_PORT_NAME_REGEX.match(fin.read().strip())
+                    is not None)
+    except OSError:
+        return
+
+
+def get_sysnet_interface(sysdir: str) -> typing.Optional[str]:
+    sysnetdir = os.path.join(sysdir, "net")
+    netdevs = os.listdir(sysnetdir)
+    # Return early in case the PCI device only has one netdev
+    if len(netdevs) == 1:
+        return netdevs[0]
+
+    # When a PCI device has multiple netdevs we need to figure out which one
+    # represents the PF
+    for netdev in netdevs:
+        if _phys_port_name_is_pf(os.path.join(sysnetdir, netdev)):
+            return netdev
 
 
 def get_pci_ethernet_addresses() -> list:
@@ -193,7 +223,7 @@ class PCINetDevice(object):
 
     def _set_sriov_numvfs(self, numvfs: int):
         sdevice = os.path.join(
-            "/sys/class/net", self.interface_name, "device", "sriov_numvfs"
+            "/sys/bus/pci/devices", self.pci_address, "sriov_numvfs"
         )
         with open(sdevice, "w") as sh:
             sh.write(str(numvfs))

@@ -64,13 +64,28 @@ SYS_TREE = {
     "/sys/class/net/virbr0-nic": "../../devices/virtual/net/virbr0-nic",
     "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.0/net/eth2/device": "../../../0000:10:00.0",
     "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.1/net/eth3/device": "../../../0000:10:00.1",
+    "/sys/bus/pci/devices/0000:10:00.0": "../../../devices/pci0000:00/0000:00:1c.4/0000:10:00.0",
+    "/sys/bus/pci/devices/0000:10:00.1": "../../../devices/pci0000:00/0000:00:1c.4/0000:10:00.1",
+    "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.0": "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.0",
+    "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.1": "/sys/devices/pci0000:00/0000:00:1c.4/0000:10:00.1",
+}
+
+NETDEVS = {
+    "/sys/bus/pci/devices/0000:10:00.0/net": ["eth2"],
+    # list the pf last so we validate the code successfully traversing the
+    # non-pf netdevs
+    "/sys/bus/pci/devices/0000:10:00.1/net": ["eth33", "eth51", "eth3"],
 }
 
 FILE_CONTENTS = {
-    "/sys/class/net/eth2/address": "a8:9d:21:cf:93:fc",
-    "/sys/class/net/eth3/address": "a8:9d:21:cf:93:fd",
-    "/sys/class/net/eth2/operstate": "up",
-    "/sys/class/net/eth3/operstate": "down",
+    "/sys/bus/pci/devices/0000:10:00.0/net/eth2/address": "a8:9d:21:cf:93:fc",
+    "/sys/bus/pci/devices/0000:10:00.1/net/eth3/address": "a8:9d:21:cf:93:fd",
+    "/sys/bus/pci/devices/0000:10:00.0/net/eth2/operstate": "up",
+    "/sys/bus/pci/devices/0000:10:00.1/net/eth3/operstate": "down",
+    "/sys/bus/pci/devices/0000:10:00.1/net/eth3/phys_port_name": "p0",
+    "/sys/bus/pci/devices/0000:10:00.1/net/eth33/phys_port_name": "notapf",
+    # eth51 deliberately not listed to validate non-presence of or failure to
+    # open phys_port_name
 }
 
 COMMANDS = {"LSPCI_MD": ["lspci", "-m", "-D"]}

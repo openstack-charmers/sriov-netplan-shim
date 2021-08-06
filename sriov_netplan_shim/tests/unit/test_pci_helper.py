@@ -52,14 +52,17 @@ class mocked_filehandle(object):
         self.FILENAME = fname
 
     def _getfilecontents_read(self):
-        return pci_responses.FILE_CONTENTS[self.FILENAME]
+        try:
+            return pci_responses.FILE_CONTENTS[self.FILENAME]
+        except KeyError:
+            raise OSError()
 
     def _getfilecontents_readlines(self):
         return pci_responses.FILE_CONTENTS[self.FILENAME].split("\n")
 
 
 def mocked_globs(path):
-    check_path = path.rstrip("*").rstrip("/")
+    check_path = path.split("*")[0].rstrip("/")
     dirs = []
     for sdir in pci_responses.SYS_TREE:
         if check_path in sdir:
@@ -90,6 +93,10 @@ def mocked_resolve_link(link):
 def mocked_realpath(link):
     resolved_link = mocked_resolve_link(link)
     return pci_responses.SYS_TREE[resolved_link]
+
+
+def mocked_listdir(path):
+    return pci_responses.NETDEVS[path]
 
 
 @patch("pci.cached")
