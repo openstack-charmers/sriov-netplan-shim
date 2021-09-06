@@ -35,7 +35,9 @@ def configure():
         logging.warn("No configuration file found, skipping configuration")
         return
 
-    if not configuration or "interfaces" not in configuration:
+    if (not configuration
+            or "interfaces" not in configuration
+            or not configuration["interfaces"]):
         logging.warn("No interfaces section in configuration file, skipping "
                      "configuration")
         return
