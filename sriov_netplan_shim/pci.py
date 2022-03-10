@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import glob
+import itertools
 import logging
 import os
 import re
@@ -56,7 +57,9 @@ def get_sysnet_interfaces_and_macs() -> list:
     :rtype: list
     """
     net_devs = []
-    for sdir in glob.glob("/sys/bus/pci/devices/*/net/../"):
+    for sdir in itertools.chain(
+            glob.glob("/sys/bus/pci/devices/*/net/../"),
+            glob.glob("/sys/bus/pci/devices/*/virtio*/net/../")):
         fq_path = os.path.realpath(sdir)
         path = fq_path.split("/")
         if "virtio" in path[-1]:
