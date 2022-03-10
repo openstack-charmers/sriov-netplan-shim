@@ -111,7 +111,9 @@ class PCINetDeviceTest(CharmTestCase):
     def test_get_sysnet_interfaces_and_macs(
         self, _update, _interface, _mac, _state, _sriov, _osrealpath, _osislink
     ):
-        self.glob.glob.return_value = ["/sys/bus/pci/devices/0000:10:00.0"]
+        self.glob.glob.side_effect = (
+            ["/sys/bus/pci/devices/0000:10:00.0"],
+            [])
         _interface.return_value = "eth2"
         _mac.return_value = "a8:9d:21:cf:93:fc"
         _state.return_value = "up"
@@ -140,7 +142,9 @@ class PCINetDeviceTest(CharmTestCase):
     def test_get_sysnet_interfaces_and_macs_virtio(
         self, _update, _interface, _mac, _state, _sriov, _osrealpath, _osislink
     ):
-        self.glob.glob.return_value = ["/sys/bus/pci/devices/0000:10:00.0"]
+        self.glob.glob.side_effect = (
+            ["/sys/bus/pci/devices/0000:10:00.0"],
+            [])
         _interface.return_value = "eth2"
         _mac.return_value = "a8:9d:21:cf:93:fc"
         _state.return_value = "up"
